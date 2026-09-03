@@ -1,0 +1,62 @@
+{
+  "name": "droplan",
+  "version": "1.0.0",
+  "description": "极速局域网跨端文件传输与隔空剪贴板同步工具 (原生 PC 桌面客户端 + 移动端 Web 直传)",
+  "author": "xiaoyu180122",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/xiaoyu180122/DropLAN.git"
+  },
+  "homepage": "https://github.com/xiaoyu180122/DropLAN#readme",
+  "type": "module",
+  "main": "electron/main.cjs",
+  "scripts": {
+    "app": "electron .",
+    "start:pc": "electron .",
+    "kill:port": "powershell -Command \"Get-NetTCPConnection -LocalPort 5200 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue }\"",
+    "dev:frontend": "vite",
+    "dev:backend": "node server/index.js",
+    "dev": "concurrently -n \"SERVER,VITE\" -c \"emerald,cyan\" \"npm run dev:backend\" \"npm run dev:frontend\"",
+    "build:server": "esbuild server/index.js --bundle --platform=node --target=node20 --outfile=server/dist_server.cjs",
+    "build": "tsc && vite build && npm run build:server",
+    "start": "node server/index.js",
+    "preview": "vite preview",
+    "pack": "npm run build && electron-builder --dir",
+    "dist": "npm run build && electron-builder --win",
+    "dist:nsis": "npm run build && electron-builder --win nsis",
+    "dist:zip": "npm run build && electron-builder --win zip"
+  },
+  "dependencies": {
+    "@types/archiver": "^8.0.0",
+    "archiver": "^8.0.0",
+    "clsx": "^2.1.1",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "lucide-react": "^1.16.0",
+    "motion": "^12.4.7",
+    "multer": "^1.4.5-lts.1",
+    "qrcode.react": "^4.2.0",
+    "sonner": "^2.0.1",
+    "tailwind-merge": "^3.0.2",
+    "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.17",
+    "@types/express": "^4.17.21",
+    "@types/multer": "^1.4.12",
+    "@types/node": "^22.13.5",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@types/ws": "^8.5.14",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "concurrently": "^9.1.2",
+    "electron": "^44.1.1",
+    "electron-builder": "^26.15.3",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "^5.7.3",
+    "vite": "^6.2.0"
+  }
+}

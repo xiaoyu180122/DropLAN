@@ -1,0 +1,32 @@
+# Dependencies
+node_modules/
+
+# Production builds & packaging
+dist/
+release/
+DropLAN-软件发布包/
+
+# User downloads & runtime data
+downloads/
+file_registry.json
+config.json
+
+# Logs & temp files
+*.log
+*.tmp
+electron_run_*.txt
+server_test_*.txt
+
+# OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
