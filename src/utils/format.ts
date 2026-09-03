@@ -27,28 +27,43 @@ export function getFileExt(filename: string): string {
   return filename.split('.').pop()?.toLowerCase() || '';
 }
 
+export const IMAGE_EXTS = [
+  'png', 'jpg', 'jpeg', 'jfif', 'pjpeg', 'pjp', 'gif', 'webp', 'svg', 'bmp', 'ico',
+  'avif', 'heic', 'heif', 'tif', 'tiff', 'psd', 'dng', 'cr2', 'cr3', 'nef', 'arw', 'rw2', 'orf'
+];
+
+export const VIDEO_EXTS = [
+  'mp4', 'mov', 'mkv', 'avi', 'webm', 'flv', 'f4v', 'm4v', '3gp', '3g2', 'wmv',
+  'asf', 'rm', 'rmvb', 'ts', 'mts', 'm2ts', 'vob', 'mpg', 'mpeg'
+];
+
+export const AUDIO_EXTS = [
+  'mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus', 'wma', 'aiff', 'ape', 'alac', 'mid', 'midi'
+];
+
 export function isImageFile(filename: string, mimetype?: string): boolean {
   const ext = getFileExt(filename);
-  return (
-    ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'heic', 'bmp', 'ico', 'avif'].includes(ext) ||
-    Boolean(mimetype?.startsWith('image/'))
-  );
+  return IMAGE_EXTS.includes(ext) || Boolean(mimetype?.startsWith('image/'));
 }
 
 export function isVideoFile(filename: string, mimetype?: string): boolean {
   const ext = getFileExt(filename);
-  return (
-    ['mp4', 'mov', 'mkv', 'avi', 'webm', 'flv', 'm4v', '3gp'].includes(ext) ||
-    Boolean(mimetype?.startsWith('video/'))
-  );
+  return VIDEO_EXTS.includes(ext) || Boolean(mimetype?.startsWith('video/'));
 }
 
 export function isAudioFile(filename: string, mimetype?: string): boolean {
   const ext = getFileExt(filename);
-  return (
-    ['mp3', 'wav', 'flac', 'aac', 'm4a', 'ogg', 'opus'].includes(ext) ||
-    Boolean(mimetype?.startsWith('audio/'))
-  );
+  return AUDIO_EXTS.includes(ext) || Boolean(mimetype?.startsWith('audio/'));
+}
+
+export function isSpecialImage(filename: string): boolean {
+  const ext = getFileExt(filename);
+  return ['heic', 'heif', 'tif', 'tiff', 'psd', 'dng', 'cr2', 'cr3', 'nef', 'arw', 'rw2', 'orf'].includes(ext);
+}
+
+export function isNonNativeVideo(filename: string): boolean {
+  const ext = getFileExt(filename);
+  return ['mkv', 'avi', 'flv', 'f4v', 'wmv', 'asf', 'rm', 'rmvb', 'ts', 'mts', 'm2ts', 'vob', 'mpg', 'mpeg'].includes(ext);
 }
 
 export function isTextFile(filename: string, mimetype?: string): boolean {

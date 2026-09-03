@@ -332,6 +332,8 @@ export const DesktopView: React.FC<DesktopViewProps> = ({
       {/* Media Lightbox Preview Modal */}
       <MediaPreviewModal
         file={previewingFile}
+        files={files}
+        onSelectFile={(file) => setPreviewingFile(file)}
         onClose={() => setPreviewingFile(null)}
       />
 

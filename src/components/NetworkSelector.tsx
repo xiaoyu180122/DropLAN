@@ -117,7 +117,7 @@ export const NetworkSelector: React.FC<NetworkSelectorProps> = ({
         />
       </button>
 
-      {/* 2. Manual Rescan LAN IP Button with Emil Kowalski spring micro-motion */}
+      {/* 2. Manual Rescan LAN IP Button */}
       <motion.button
         type="button"
         onClick={handleRescan}

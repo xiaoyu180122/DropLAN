@@ -409,13 +409,29 @@ export const MobileView: React.FC<MobileViewProps> = ({
                       <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-zinc-800 bg-zinc-950 flex items-center justify-center">
                         {isImg ? (
                           <img
-                            src={`/api/preview/${file.id}`}
+                            src={`/api/thumbnail/${file.id}`}
                             alt={file.originalName}
                             className="w-full h-full object-cover"
                             loading="lazy"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).src = `/api/preview/${file.id}`;
+                            }}
                           />
                         ) : isVid ? (
-                          <Play className="w-5 h-5 text-sky-400" />
+                          <div className="relative w-full h-full flex items-center justify-center bg-zinc-950">
+                            <img
+                              src={`/api/thumbnail/${file.id}`}
+                              alt={file.originalName}
+                              className="w-full h-full object-cover opacity-75"
+                              loading="lazy"
+                              onError={(e) => {
+                                (e.target as HTMLElement).style.display = 'none';
+                              }}
+                            />
+                            <div className="absolute inset-0 flex items-center justify-center text-sky-400 bg-black/20">
+                              <Play className="w-4 h-4 fill-sky-400/30" />
+                            </div>
+                          </div>
                         ) : (
                           <span
                             className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${badge.color}`}
@@ -501,6 +517,8 @@ export const MobileView: React.FC<MobileViewProps> = ({
       {/* Media Lightbox Preview Modal */}
       <MediaPreviewModal
         file={previewingFile}
+        files={files}
+        onSelectFile={(file) => setPreviewingFile(file)}
         onClose={() => setPreviewingFile(null)}
         onDownload={handleDownload}
       />

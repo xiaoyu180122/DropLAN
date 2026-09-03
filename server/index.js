@@ -6,7 +6,7 @@ import cors from 'cors';
 import os from 'os';
 import path from 'path';
 import fs from 'fs';
-import { exec } from 'child_process';
+import { exec, spawn } from 'child_process';
 import { fileURLToPath } from 'url';
 import { ZipArchive } from 'archiver';
 
@@ -20,6 +20,143 @@ if (!fs.existsSync(downloadsDir)) {
   try {
     fs.mkdirSync(downloadsDir, { recursive: true });
   } catch (e) {}
+}
+
+// Media cache directories for on-the-fly previews and thumbnails
+const cacheDir = path.resolve(userDataDir, 'cache');
+const thumbCacheDir = path.resolve(cacheDir, 'thumbnails');
+const previewCacheDir = path.resolve(cacheDir, 'previews');
+
+try {
+  fs.mkdirSync(thumbCacheDir, { recursive: true });
+  fs.mkdirSync(previewCacheDir, { recursive: true });
+} catch (_) {}
+
+// Check system FFmpeg availability
+let ffmpegAvailable = false;
+try {
+  exec('ffmpeg -version', (err) => {
+    ffmpegAvailable = !err;
+    if (ffmpegAvailable) {
+      console.log('[DropLAN] FFmpeg available: Full-format video/image transcoding enabled.');
+    } else {
+      console.log('[DropLAN] FFmpeg not found on system PATH: Falling back to direct streaming.');
+    }
+  });
+} catch (_) {
+  ffmpegAvailable = false;
+}
+
+// Comprehensive MIME types dictionary
+const MIME_TYPES = {
+  // Images
+  jpg: 'image/jpeg',
+  jpeg: 'image/jpeg',
+  jfif: 'image/jpeg',
+  pjpeg: 'image/jpeg',
+  pjp: 'image/jpeg',
+  png: 'image/png',
+  gif: 'image/gif',
+  webp: 'image/webp',
+  svg: 'image/svg+xml',
+  svgz: 'image/svg+xml',
+  bmp: 'image/bmp',
+  ico: 'image/x-icon',
+  avif: 'image/avif',
+  heic: 'image/heic',
+  heif: 'image/heif',
+  tif: 'image/tiff',
+  tiff: 'image/tiff',
+  psd: 'image/vnd.adobe.photoshop',
+  dng: 'image/x-adobe-dng',
+  cr2: 'image/x-canon-cr2',
+  cr3: 'image/x-canon-cr3',
+  nef: 'image/x-nikon-nef',
+  arw: 'image/x-sony-arw',
+  // Videos
+  mp4: 'video/mp4',
+  m4v: 'video/mp4',
+  webm: 'video/webm',
+  ogv: 'video/ogg',
+  ogg: 'video/ogg',
+  mov: 'video/quicktime',
+  qt: 'video/quicktime',
+  mkv: 'video/x-matroska',
+  avi: 'video/x-msvideo',
+  wmv: 'video/x-ms-wmv',
+  asf: 'video/x-ms-asf',
+  flv: 'video/x-flv',
+  f4v: 'video/x-f4v',
+  ts: 'video/mp2t',
+  mts: 'video/mp2t',
+  m2ts: 'video/mp2t',
+  rm: 'video/vnd.rn-realmedia',
+  rmvb: 'video/vnd.rn-realmedia',
+  '3gp': 'video/3gpp',
+  '3g2': 'video/3gpp2',
+  vob: 'video/dvd',
+  mpg: 'video/mpeg',
+  mpeg: 'video/mpeg',
+  // Audio
+  mp3: 'audio/mpeg',
+  wav: 'audio/wav',
+  flac: 'audio/flac',
+  aac: 'audio/aac',
+  m4a: 'audio/mp4',
+  wma: 'audio/x-ms-wma',
+  opus: 'audio/opus',
+  // Documents
+  pdf: 'application/pdf',
+  txt: 'text/plain',
+  md: 'text/markdown',
+  json: 'application/json',
+  js: 'text/javascript',
+  tsx: 'text/plain',
+  jsx: 'text/plain',
+  html: 'text/html',
+  css: 'text/css',
+  csv: 'text/csv',
+  xml: 'application/xml',
+};
+
+function getFileExtension(filename = '') {
+  const ext = path.extname(filename).toLowerCase().replace('.', '');
+  return ext;
+}
+
+function getMimeType(filename, originalName, fallbackMime) {
+  const ext = getFileExtension(originalName) || getFileExtension(filename);
+  if (MIME_TYPES[ext]) {
+    return MIME_TYPES[ext];
+  }
+  if (fallbackMime && fallbackMime !== 'application/octet-stream') {
+    return fallbackMime;
+  }
+  return 'application/octet-stream';
+}
+
+function resolveFilePath(file) {
+  if (!file) return null;
+  // 1. Direct recorded path
+  if (file.path && fs.existsSync(file.path)) {
+    return file.path;
+  }
+  // 2. In active downloadsDir
+  const inDownloads = path.resolve(downloadsDir, file.name);
+  if (fs.existsSync(inDownloads)) {
+    return inDownloads;
+  }
+  // 3. In appConfig.downloadsDir if different
+  if (appConfig.downloadsDir && appConfig.downloadsDir !== downloadsDir) {
+    const inConfigDir = path.resolve(appConfig.downloadsDir, file.name);
+    if (fs.existsSync(inConfigDir)) return inConfigDir;
+  }
+  // 4. In projectRoot/downloads
+  const inProject = path.resolve(projectRoot, 'downloads', file.name);
+  if (fs.existsSync(inProject)) {
+    return inProject;
+  }
+  return inDownloads;
 }
 
 // Config file management
@@ -451,33 +588,8 @@ app.post('/api/upload', upload.array('files'), (req, res) => {
   });
 });
 
-// 5. Download Single File (Attachment)
-app.get('/api/download/:id', (req, res) => {
-  const file = fileRegistry.find((f) => f.id === req.params.id);
-  if (!file) {
-    return res.status(404).json({ error: 'File not found' });
-  }
-
-  const filePath = path.resolve(downloadsDir, file.name);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'File on disk missing' });
-  }
-
-  res.download(filePath, file.originalName || file.name);
-});
-
-// 6. In-Browser Media Preview (Supports Video/Audio Streaming Range)
-app.get('/api/preview/:id', (req, res) => {
-  const file = fileRegistry.find((f) => f.id === req.params.id);
-  if (!file) {
-    return res.status(404).json({ error: 'File not found' });
-  }
-
-  const filePath = path.resolve(downloadsDir, file.name);
-  if (!fs.existsSync(filePath)) {
-    return res.status(404).json({ error: 'File on disk missing' });
-  }
-
+// Helper to pipe a file stream with Range support
+function streamFileWithRange(req, res, filePath, mimeType, filename) {
   const stat = fs.statSync(filePath);
   const fileSize = stat.size;
   const range = req.headers.range;
@@ -493,17 +605,255 @@ app.get('/api/preview/:id', (req, res) => {
       'Content-Range': `bytes ${start}-${end}/${fileSize}`,
       'Accept-Ranges': 'bytes',
       'Content-Length': chunksize,
-      'Content-Type': file.mimetype || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalName || file.name)}"`,
+      'Content-Type': mimeType,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
     });
     fileStream.pipe(res);
   } else {
     res.writeHead(200, {
       'Content-Length': fileSize,
-      'Content-Type': file.mimetype || 'application/octet-stream',
-      'Content-Disposition': `inline; filename="${encodeURIComponent(file.originalName || file.name)}"`,
+      'Content-Type': mimeType,
+      'Content-Disposition': `inline; filename="${encodeURIComponent(filename)}"`,
+      'Accept-Ranges': 'bytes',
     });
     fs.createReadStream(filePath).pipe(res);
+  }
+}
+
+// 5. Download Single File (Attachment)
+app.get('/api/download/:id', (req, res) => {
+  const file = fileRegistry.find((f) => f.id === req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const filePath = resolveFilePath(file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File on disk missing' });
+  }
+
+  res.download(filePath, file.originalName || file.name);
+});
+
+// 6. In-Browser Media Preview (Supports Full-Format Images & Video Streaming)
+app.get('/api/preview/:id', (req, res) => {
+  const file = fileRegistry.find((f) => f.id === req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const filePath = resolveFilePath(file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File on disk missing' });
+  }
+
+  const ext = getFileExtension(file.originalName) || getFileExtension(file.name);
+  const rawMime = getMimeType(file.name, file.originalName, file.mimetype);
+  const filename = file.originalName || file.name;
+
+  // Special handling for formats unsupported by browser <img> (HEIC, HEIF, TIFF, PSD, RAW formats)
+  const isSpecialImage = ['heic', 'heif', 'tif', 'tiff', 'psd', 'dng', 'cr2', 'cr3', 'nef', 'arw'].includes(ext);
+
+  if (isSpecialImage && req.query.raw !== 'true') {
+    const previewCacheFile = path.resolve(previewCacheDir, `${file.id}.jpg`);
+    if (fs.existsSync(previewCacheFile)) {
+      return streamFileWithRange(req, res, previewCacheFile, 'image/jpeg', `${filename}.jpg`);
+    }
+
+    if (ffmpegAvailable) {
+      const proc = spawn('ffmpeg', [
+        '-hide_banner',
+        '-loglevel', 'error',
+        '-y',
+        '-i', filePath,
+        '-frames:v', '1',
+        '-q:v', '2',
+        previewCacheFile,
+      ]);
+
+      proc.on('close', (code) => {
+        if (code === 0 && fs.existsSync(previewCacheFile)) {
+          return streamFileWithRange(req, res, previewCacheFile, 'image/jpeg', `${filename}.jpg`);
+        }
+        return streamFileWithRange(req, res, filePath, rawMime, filename);
+      });
+
+      proc.on('error', () => {
+        return streamFileWithRange(req, res, filePath, rawMime, filename);
+      });
+      return;
+    }
+  }
+
+  // Standard delivery for native images and videos with proper MIME type
+  streamFileWithRange(req, res, filePath, rawMime, filename);
+});
+
+// 6.1 On-the-fly Video Transcoding & Remux Streaming (Fragmented MP4 for all formats)
+app.get('/api/stream/:id', (req, res) => {
+  const file = fileRegistry.find((f) => f.id === req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const filePath = resolveFilePath(file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File on disk missing' });
+  }
+
+  if (!ffmpegAvailable) {
+    return res.redirect(`/api/preview/${file.id}`);
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'video/mp4',
+    'Accept-Ranges': 'none',
+    'Cache-Control': 'no-cache, no-store, must-revalidate',
+    'Connection': 'keep-alive',
+  });
+
+  const ffmpegArgs = [
+    '-hide_banner',
+    '-loglevel', 'error',
+    '-i', filePath,
+    '-c:v', 'libx264',
+    '-preset', 'ultrafast',
+    '-tune', 'zerolatency',
+    '-crf', '25',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', '128k',
+    '-ac', '2',
+    '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+    '-f', 'mp4',
+    'pipe:1',
+  ];
+
+  const proc = spawn('ffmpeg', ffmpegArgs, { stdio: ['ignore', 'pipe', 'ignore'] });
+  proc.stdout.pipe(res);
+
+  const cleanup = () => {
+    try { proc.kill('SIGKILL'); } catch (_) {}
+  };
+
+  req.on('close', cleanup);
+  res.on('finish', cleanup);
+  proc.on('error', () => {
+    if (!res.headersSent) res.status(500).send('Transcoding error');
+  });
+});
+
+// 6.2 Intelligent Media Thumbnail Endpoint
+app.get('/api/thumbnail/:id', (req, res) => {
+  const file = fileRegistry.find((f) => f.id === req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const filePath = resolveFilePath(file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File on disk missing' });
+  }
+
+  const ext = getFileExtension(file.originalName) || getFileExtension(file.name);
+  const rawMime = getMimeType(file.name, file.originalName, file.mimetype);
+  const isWebImg = ['jpg', 'jpeg', 'jfif', 'pjpeg', 'pjp', 'png', 'gif', 'webp', 'svg', 'bmp', 'ico', 'avif'].includes(ext);
+
+  // If already standard web image under 2MB, serve directly
+  const stat = fs.statSync(filePath);
+  if (isWebImg && stat.size < 2 * 1024 * 1024) {
+    return streamFileWithRange(req, res, filePath, rawMime, file.originalName || file.name);
+  }
+
+  const thumbFile = path.resolve(thumbCacheDir, `${file.id}.jpg`);
+  if (fs.existsSync(thumbFile)) {
+    return streamFileWithRange(req, res, thumbFile, 'image/jpeg', 'thumb.jpg');
+  }
+
+  const isVideo = ['mp4', 'mov', 'mkv', 'avi', 'webm', 'flv', 'f4v', 'm4v', '3gp', '3g2', 'wmv', 'asf', 'rm', 'rmvb', 'ts', 'mts', 'm2ts', 'vob', 'mpg', 'mpeg'].includes(ext);
+  const isSpecialImage = ['heic', 'heif', 'tif', 'tiff', 'psd', 'dng', 'cr2', 'cr3', 'nef', 'arw'].includes(ext) || isWebImg;
+
+  if (ffmpegAvailable && (isVideo || isSpecialImage)) {
+    const ffmpegArgs = isVideo
+      ? [
+          '-hide_banner',
+          '-loglevel', 'error',
+          '-y',
+          '-ss', '00:00:01',
+          '-i', filePath,
+          '-frames:v', '1',
+          '-vf', 'scale=360:-1:flags=fast_bilinear',
+          '-q:v', '3',
+          thumbFile,
+        ]
+      : [
+          '-hide_banner',
+          '-loglevel', 'error',
+          '-y',
+          '-i', filePath,
+          '-frames:v', '1',
+          '-vf', 'scale=360:-1:flags=fast_bilinear',
+          '-q:v', '3',
+          thumbFile,
+        ];
+
+    const proc = spawn('ffmpeg', ffmpegArgs);
+    proc.on('close', (code) => {
+      if (code === 0 && fs.existsSync(thumbFile)) {
+        return streamFileWithRange(req, res, thumbFile, 'image/jpeg', 'thumb.jpg');
+      }
+      if (isWebImg) {
+        return streamFileWithRange(req, res, filePath, rawMime, file.originalName || file.name);
+      }
+      res.status(404).send('No thumbnail available');
+    });
+    proc.on('error', () => {
+      if (isWebImg) {
+        return streamFileWithRange(req, res, filePath, rawMime, file.originalName || file.name);
+      }
+      res.status(404).send('Thumbnail error');
+    });
+    return;
+  }
+
+  // Fallback: if web image without ffmpeg, send original
+  if (isWebImg) {
+    return streamFileWithRange(req, res, filePath, rawMime, file.originalName || file.name);
+  }
+
+  res.status(404).send('No thumbnail available');
+});
+
+// 6.3 Open File in Native System Application (PotPlayer, Photos, etc.)
+app.post('/api/open-file/:id', (req, res) => {
+  const file = fileRegistry.find((f) => f.id === req.params.id);
+  if (!file) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+
+  const filePath = resolveFilePath(file);
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File on disk missing' });
+  }
+
+  if (process.platform === 'win32') {
+    exec(`start "" "${filePath}"`, (err) => {
+      if (err) {
+        console.error('Failed to open file in system:', err);
+        return res.status(500).json({ error: '无法调起系统程序打开该文件' });
+      }
+      res.json({ success: true, filePath });
+    });
+  } else if (process.platform === 'darwin') {
+    exec(`open "${filePath}"`, (err) => {
+      if (err) return res.status(500).json({ error: 'Failed to open file' });
+      res.json({ success: true, filePath });
+    });
+  } else {
+    exec(`xdg-open "${filePath}"`, (err) => {
+      if (err) return res.status(500).json({ error: 'Failed to open file' });
+      res.json({ success: true, filePath });
+    });
   }
 });
 
@@ -514,7 +864,7 @@ app.get('/api/file-content/:id', (req, res) => {
     return res.status(404).json({ error: 'File not found' });
   }
 
-  const filePath = path.resolve(downloadsDir, file.name);
+  const filePath = resolveFilePath(file);
   if (!fs.existsSync(filePath)) {
     return res.status(404).json({ error: 'File on disk missing' });
   }
@@ -562,7 +912,7 @@ app.get('/api/download-zip', async (req, res) => {
     archive.pipe(res);
 
     for (const file of targetFiles) {
-      const filePath = path.resolve(downloadsDir, file.name);
+      const filePath = resolveFilePath(file);
       if (fs.existsSync(filePath)) {
         archive.file(filePath, { name: file.originalName || file.name });
       }
@@ -599,7 +949,7 @@ app.post('/api/locate-file', (req, res) => {
   const file = fileRegistry.find((f) => f.id === id);
   if (!file) return res.status(404).json({ error: 'File not found' });
 
-  const filePath = path.resolve(downloadsDir, file.name);
+  const filePath = resolveFilePath(file);
   if (!fs.existsSync(filePath)) return res.status(404).json({ error: 'File on disk missing' });
 
   const isWindows = process.platform === 'win32';
@@ -626,7 +976,7 @@ app.delete('/api/files/:id', (req, res) => {
     fileRegistry.splice(index, 1);
     saveMeta();
 
-    const filePath = path.resolve(downloadsDir, file.name);
+    const filePath = resolveFilePath(file);
     if (fs.existsSync(filePath)) {
       try {
         fs.unlinkSync(filePath);
@@ -634,6 +984,14 @@ app.delete('/api/files/:id', (req, res) => {
         console.warn('Could not delete physical file:', e);
       }
     }
+
+    // Also clean up thumbnails or preview caches if any
+    try {
+      const thumbFile = path.resolve(thumbCacheDir, `${req.params.id}.jpg`);
+      if (fs.existsSync(thumbFile)) fs.unlinkSync(thumbFile);
+      const prevFile = path.resolve(previewCacheDir, `${req.params.id}.jpg`);
+      if (fs.existsSync(prevFile)) fs.unlinkSync(prevFile);
+    } catch (_) {}
 
     broadcast({
       type: 'FILE_DELETED',
@@ -653,12 +1011,18 @@ app.post('/api/files/batch-delete', (req, res) => {
     if (index !== -1) {
       const file = fileRegistry[index];
       fileRegistry.splice(index, 1);
-      const filePath = path.resolve(downloadsDir, file.name);
+      const filePath = resolveFilePath(file);
       if (fs.existsSync(filePath)) {
         try {
           fs.unlinkSync(filePath);
         } catch (e) {}
       }
+      try {
+        const thumbFile = path.resolve(thumbCacheDir, `${id}.jpg`);
+        if (fs.existsSync(thumbFile)) fs.unlinkSync(thumbFile);
+        const prevFile = path.resolve(previewCacheDir, `${id}.jpg`);
+        if (fs.existsSync(prevFile)) fs.unlinkSync(prevFile);
+      } catch (_) {}
     }
   }
 

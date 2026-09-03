@@ -37,7 +37,7 @@
   background: #3f3f46;
 }
 
-/* Emil Kowalski Button & Click Feedback */
+/* Button & Click Interaction Feedback */
 .btn-press {
   transition: transform 140ms cubic-bezier(0.23, 1, 0.32, 1), background-color 150ms ease, border-color 150ms ease;
 }

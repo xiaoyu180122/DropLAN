@@ -373,19 +373,36 @@ export const TransferList: React.FC<TransferListProps> = ({
                     {isImg ? (
                       <>
                         <img
-                          src={`/api/preview/${file.id}`}
+                          src={`/api/thumbnail/${file.id}`}
                           alt={file.originalName}
                           className="w-full h-full object-cover transition-transform duration-200 group-hover/thumb:scale-110"
                           loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLImageElement).src = `/api/preview/${file.id}`;
+                          }}
                         />
                         <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
                           <Eye className="w-4 h-4 text-white" />
                         </div>
                       </>
                     ) : isVid ? (
-                      <div className="flex flex-col items-center justify-center text-sky-400">
-                        <Play className="w-5 h-5 fill-sky-400/20" />
-                        <span className="text-[9px] font-mono mt-0.5">VIDEO</span>
+                      <div className="relative w-full h-full flex items-center justify-center bg-zinc-950">
+                        <img
+                          src={`/api/thumbnail/${file.id}`}
+                          alt={file.originalName}
+                          className="w-full h-full object-cover opacity-75"
+                          loading="lazy"
+                          onError={(e) => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center text-sky-400 bg-black/20">
+                          <Play className="w-4 h-4 fill-sky-400/30" />
+                          <span className="text-[8px] font-mono mt-0.5 text-zinc-300">VIDEO</span>
+                        </div>
+                        <div className="absolute inset-0 bg-black/40 opacity-0 group-hover/thumb:opacity-100 flex items-center justify-center transition-opacity">
+                          <Eye className="w-4 h-4 text-white" />
+                        </div>
                       </div>
                     ) : isAud ? (
                       <div className="flex flex-col items-center justify-center text-violet-400">

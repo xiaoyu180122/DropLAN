@@ -1,6 +1,6 @@
 {
   "name": "droplan",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "极速局域网跨端文件传输与隔空剪贴板同步工具 (原生 PC 桌面客户端 + 移动端 Web 直传)",
   "author": "xiaoyu180122",
   "license": "MIT",

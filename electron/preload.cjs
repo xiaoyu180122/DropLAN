@@ -5,6 +5,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   copyToClipboard: (text) => ipcRenderer.invoke('copy-to-clipboard', text),
   selectFolder: () => ipcRenderer.invoke('select-folder'),
   showItemInFolder: (filePath) => ipcRenderer.invoke('show-item-in-folder', filePath),
+  openFile: (filePath) => ipcRenderer.invoke('open-file', filePath),
   sendNotification: (options) => ipcRenderer.invoke('send-notification', options),
   getDownloadsDir: () => ipcRenderer.invoke('get-downloads-dir'),
   setDownloadsDir: (newPath) => ipcRenderer.invoke('set-downloads-dir', newPath),
