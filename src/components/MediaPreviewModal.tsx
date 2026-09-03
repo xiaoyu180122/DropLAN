@@ -153,24 +153,33 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
     }
   };
 
-  const handleOpenInSystem = async () => {
-    if (window.electronAPI?.openFile && file.path) {
-      const ok = await window.electronAPI.openFile(file.path);
-      if (ok) {
-        toast.success('已调用系统程序打开');
-        return;
-      }
+  const handleOpenInSystem = async (e?: React.MouseEvent) => {
+    if (e) {
+      e.stopPropagation();
+      e.preventDefault();
     }
-    // Web fallback: call server endpoint
+    const toastId = toast.loading('正在调起系统程序打开...');
     try {
+      if (window.electronAPI?.openFile) {
+        const ok = await window.electronAPI.openFile(
+          file.path || '',
+          file.name || file.originalName || ''
+        );
+        if (ok) {
+          toast.success('已调用系统程序打开', { id: toastId });
+          return;
+        }
+      }
+      // Web fallback: call server endpoint
       const res = await fetch(`/api/open-file/${file.id}`, { method: 'POST' });
-      if (res.ok) {
-        toast.success('已调用系统程序打开');
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.success) {
+        toast.success('已调用系统程序打开', { id: toastId });
       } else {
-        toast.error('无法调用系统程序，建议直接下载');
+        toast.error(data.error || '无法调起系统程序，建议直接点击下载', { id: toastId });
       }
     } catch {
-      toast.error('无法调用系统程序，建议直接下载');
+      toast.error('调起系统程序失败，建议直接点击下载', { id: toastId });
     }
   };
 
@@ -198,12 +207,14 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
         transition={{ duration: 0.15 }}
-        className="fixed inset-0 z-50 bg-black/90 backdrop-blur-md flex flex-col justify-between"
+        className="fixed inset-0 z-[100] bg-black/90 backdrop-blur-md flex flex-col justify-between window-no-drag modal-layer"
+        style={{ WebkitAppRegion: 'no-drag' } as any}
         onClick={onClose}
       >
         {/* Top Control Bar */}
         <div
-          className="w-full flex items-center justify-between p-4 px-6 bg-gradient-to-b from-black/90 to-transparent z-20"
+          className="w-full flex items-center justify-between p-4 px-6 bg-gradient-to-b from-black/90 to-transparent z-20 window-no-drag"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center gap-3">
@@ -499,7 +510,8 @@ export const MediaPreviewModal: React.FC<MediaPreviewModalProps> = ({
         {/* Bottom Toolbar for Images */}
         {isImg && !imgError && (
           <div
-            className="w-full flex items-center justify-center p-4 bg-gradient-to-t from-black/90 to-transparent z-20"
+            className="w-full flex items-center justify-center p-4 bg-gradient-to-t from-black/90 to-transparent z-20 window-no-drag"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-zinc-900/90 border border-zinc-800 backdrop-blur-md shadow-lg">

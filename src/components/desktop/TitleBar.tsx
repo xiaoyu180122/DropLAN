@@ -60,7 +60,7 @@ export const TitleBar: React.FC = () => {
           局域网极速跨端快传
         </span>
         <span className="px-1.5 py-0.2 rounded text-[10px] font-mono font-medium bg-emerald-500/10 text-emerald-400/90 border border-emerald-500/20">
-          Desktop v1.0.0
+          Desktop v1.0.1
         </span>
       </div>
 

@@ -57,7 +57,7 @@ export interface ElectronAPI {
   copyToClipboard: (text: string) => Promise<boolean>;
   selectFolder: () => Promise<string | null>;
   showItemInFolder: (filePath: string) => Promise<boolean>;
-  openFile?: (filePath: string) => Promise<boolean>;
+  openFile?: (filePath: string, fileName?: string) => Promise<boolean>;
   sendNotification: (options: { title: string; body: string }) => Promise<boolean>;
   getDownloadsDir: () => Promise<string>;
   setDownloadsDir: (newPath: string) => Promise<boolean>;

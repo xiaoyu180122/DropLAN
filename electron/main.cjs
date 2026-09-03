@@ -103,11 +103,18 @@ ipcMain.handle('show-item-in-folder', (event, filePath) => {
   return false;
 });
 
-ipcMain.handle('open-file', async (event, filePath) => {
+ipcMain.handle('open-file', async (event, filePath, fileName) => {
   try {
-    if (filePath && fs.existsSync(filePath)) {
-      await shell.openPath(filePath);
-      return true;
+    let target = filePath;
+    if (!target || !fs.existsSync(target)) {
+      if (fileName && global.currentDownloadsDir) {
+        const candidate = path.resolve(global.currentDownloadsDir, fileName);
+        if (fs.existsSync(candidate)) target = candidate;
+      }
+    }
+    if (target && fs.existsSync(target)) {
+      const errMsg = await shell.openPath(target);
+      return !errMsg; // shell.openPath returns an empty string on success
     }
   } catch (err) {
     console.error('Failed to open file with shell.openPath:', err);

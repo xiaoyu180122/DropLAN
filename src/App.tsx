@@ -442,9 +442,14 @@ export const App: React.FC = () => {
     <>
       <Toaster
         position={viewMode === 'mobile' ? 'bottom-center' : 'top-right'}
+        offset={viewMode === 'mobile' ? '20px' : '54px'}
         theme="dark"
         richColors
         closeButton
+        toastOptions={{
+          className: 'window-no-drag',
+          style: { WebkitAppRegion: 'no-drag' } as any,
+        }}
       />
 
       {viewMode === 'desktop' ? (

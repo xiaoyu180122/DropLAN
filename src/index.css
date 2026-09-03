@@ -62,12 +62,43 @@
   box-shadow: 0 12px 30px -10px rgba(0, 0, 0, 0.6);
 }
 
-/* Electron Frameless Window Drag Utilities */
+/* Electron Frameless Window Drag & Clickability Utilities */
 .window-drag {
   -webkit-app-region: drag;
   user-select: none;
 }
 
-.window-no-drag {
+.window-no-drag,
+.window-no-drag * {
+  -webkit-app-region: no-drag !important;
+}
+
+/* Ensure all buttons, links, inputs, and interactive widgets always receive clicks */
+button,
+a,
+input,
+select,
+textarea,
+[role="button"],
+.btn-press {
   -webkit-app-region: no-drag;
 }
+
+/* Sonner Toaster & Toasts must be 100% clickable and dismissible in Electron */
+[data-sonner-toaster],
+[data-sonner-toaster] *,
+[data-sonner-toast],
+[data-sonner-toast] *,
+[data-close-button],
+[data-button] {
+  -webkit-app-region: no-drag !important;
+  pointer-events: auto !important;
+}
+
+/* Fullscreen modal dialogs & lightboxes must be non-draggable to allow full interaction */
+[role="dialog"],
+.modal-layer,
+.modal-layer * {
+  -webkit-app-region: no-drag !important;
+}
+

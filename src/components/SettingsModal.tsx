@@ -89,7 +89,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.15 }}
-          className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4"
+          className="fixed inset-0 z-[100] bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 window-no-drag modal-layer"
+          style={{ WebkitAppRegion: 'no-drag' } as any}
           onClick={onClose}
         >
           <motion.div
@@ -98,7 +99,8 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.96, y: 8 }}
             transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
-            className="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-hud space-y-6 will-change-transform"
+            className="w-full max-w-lg rounded-2xl bg-zinc-950 border border-zinc-800 p-6 shadow-hud space-y-6 will-change-transform window-no-drag"
+            style={{ WebkitAppRegion: 'no-drag' } as any}
             onClick={(e) => e.stopPropagation()}
           >
           {/* Header */}
